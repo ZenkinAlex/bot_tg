@@ -42,6 +42,7 @@ INDUSTRIES = ["Оборона", "Промышленность", "Торговл�
 
 # FSM State Machine
 class InsightForm(StatesGroup):
+    choosing_order = State()  # Выбор: начать с региона или отрасли
     theme = State()
     description = State()
     macro_region = State()
@@ -61,6 +62,7 @@ async def create_main_keyboard():
     builder.button(text="➕ Создать новый инсайт", callback_data="new_insight")
     builder.button(text="🔍 Поиск и просмотр", callback_data="search_insights")
     builder.button(text="📊 Экспорт в Excel", callback_data="export_excel")
+    builder.button(text="ℹ️ О боте", callback_data="about_bot")
     builder.adjust(1)
     return builder.as_markup()
 
@@ -100,28 +102,74 @@ async def create_industry_keyboard(region=None, for_search=False):
 
 @router.message(Command("start"))
 async def cmd_start(message: Message):
-    """Обработка команды /start"""
+    """Обработка команды /start с красивым приветствием"""
     logger.info(f"User {message.from_user.id} ({message.from_user.username}) started the bot")
-    await message.answer(
-        f"👋 Добро пожаловать, {message.from_user.first_name}!\n\n"
-        "Этот бот помогает управлять инсайдами по макрорегионам и отраслям.",
-        reply_markup=await create_main_keyboard()
-    )
+    
+    welcome_text = f"""
+🎉 Добро пожаловать в Insights Bot!
+
+👋 Привет, {message.from_user.first_name}!
+
+Это приложение предназначено для управления деловыми инсайдами по макрорегионам и отраслям экономики.
+
+📌 **Основные возможности:**
+
+✏️ **Создать инсайт** — добавить новое наблюдение, факт или аналитику
+   • Опишите суть инсайта
+   • Выберите макрорегион (МСК, ЦФО, СЗФО и др.)
+   • Выберите отрасль (Оборона, Промышленность, Торговля и др.)
+   • Прикрепите документ или фото (опционально)
+
+🔍 **Поиск и просмотр** — найти сохраненные инсайты
+   • Фильтруйте по макрорегиону и отрасли
+   • Листайте результаты
+   • Скачивайте прикрепленные файлы
+
+📊 **Экспорт в Excel** — выгрузить все данные в таблицу
+   • Получите красиво отформатированный файл
+   • Удобно для анализа и архивирования
+
+💾 **Облачное хранилище** — все данные хранятся безопасно в БД
+
+─────────────────────────────────────
+
+⬇️ Выберите действие ниже, чтобы начать:
+"""
+    
+    await message.answer(welcome_text, reply_markup=await create_main_keyboard())
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
     """Справка по командам"""
     help_text = """
-🤖 Доступные команды:
+🤖 **Доступные команды:**
 
-/start - Главное меню
-/help - Эта справка
-/cancel - Отмена текущей операции
+/start — Главное меню и приветствие
+/help — Эта справка
+/cancel — Отмена текущей операции
 
-📌 Основные функции:
-• ➕ Создать новый инсайт - добавить новую запись
-• 🔍 Поиск и просмотр - найти записи по фильтрам
-• 📊 Экспорт в Excel - скачать все данные в таблице
+📌 **Основные функции:**
+
+➕ **Создать новый инсайт**
+   Пошаговое заполнение:
+   1. Введите тему
+   2. Введите описание
+   3. Выберите начать с макрорегиона или отрасли
+   4. Выберите второй параметр
+   5. Прикрепите файл или пропустите
+   ✅ Инсайт сохранен!
+
+🔍 **Поиск и просмотр**
+   1. Выберите макрорегион
+   2. Выберите отрасль
+   3. Просмотрите найденные инсайты
+   4. Листайте результаты, скачивайте файлы
+
+📊 **Экспорт в Excel**
+   Выгрузите все сохраненные инсайты в один файл
+
+ℹ️ **О боте**
+   Получите подробную информацию о приложении
 """
     await message.answer(help_text)
 
@@ -131,6 +179,49 @@ async def cmd_cancel(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("❌ Операция отменена", reply_markup=await create_main_keyboard())
 
+# ==================== Информация о боте ====================
+
+@router.callback_query(F.data == "about_bot")
+async def about_bot(callback: CallbackQuery):
+    """Информация о боте"""
+    about_text = """
+ℹ️ **О Insights Bot**
+
+🎯 **Назначение:**
+Управление и анализ деловых инсайтов по макрорегионам и отраслям экономики.
+
+🔧 **Технология:**
+• Telegram Bot API (aiogram)
+• PostgreSQL база данных (Supabase)
+• Облачный хостинг (Render)
+• Python 3.11+
+
+📊 **Функциональность:**
+✅ Создание и сохранение инсайтов
+✅ Гибкая фильтрация по регионам и отраслям
+✅ Экспорт данных в Excel с форматированием
+✅ Прикрепление файлов и документов
+✅ 24/7 доступность
+
+🌍 **Поддерживаемые макрорегионы:**
+МСК, ЦФО, СЗФО, УФО, ЮФО, ПФО, СДФО, СНГ
+
+🏭 **Поддерживаемые отрасли:**
+Оборона, Промышленность, Торговля, Банки, Нефть и газ, Энергетика
+
+💾 **Безопасность:**
+Все данные хранятся в защищенной облачной БД с автоматическим резервным копированием.
+
+─────────────────────────────────────
+"""
+    
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🔙 В меню", callback_data="back_to_main")
+    builder.adjust(1)
+    
+    await callback.message.edit_text(about_text, reply_markup=builder.as_markup())
+    await callback.answer()
+
 # ==================== Главное меню ====================
 
 @router.callback_query(F.data == "back_to_main")
@@ -138,7 +229,7 @@ async def back_to_main(callback: CallbackQuery, state: FSMContext):
     """Возврат в главное меню"""
     await state.clear()
     await callback.message.edit_text(
-        "📌 Главное меню:",
+        "📌 Главное меню:\n\nВыберите действие:",
         reply_markup=await create_main_keyboard()
     )
     await callback.answer()
@@ -149,7 +240,36 @@ async def back_to_main(callback: CallbackQuery, state: FSMContext):
 async def new_insight_start(callback: CallbackQuery, state: FSMContext):
     """Начало создания нового инсайта"""
     logger.info(f"User {callback.from_user.id} started creating new insight")
-    await callback.message.edit_text("📝 Введите тему инсайта:")
+    
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🗺️ Начать с макрорегиона", callback_data="order_region_first")
+    builder.button(text="🏭 Начать с отрасли", callback_data="order_industry_first")
+    builder.button(text="⬅️ Назад", callback_data="back_to_main")
+    builder.adjust(1)
+    
+    await callback.message.edit_text(
+        "📝 **Создание нового инсайта**\n\n"
+        "Выберите, с чего начать заполнение:\n"
+        "• 🗺️ По макрорегиону (географический принцип)\n"
+        "• 🏭 По отрасли (профессиональный принцип)",
+        reply_markup=builder.as_markup()
+    )
+    await state.set_state(InsightForm.choosing_order)
+    await callback.answer()
+
+@router.callback_query(InsightForm.choosing_order, F.data == "order_region_first")
+async def order_region_first(callback: CallbackQuery, state: FSMContext):
+    """Начать с макрорегиона"""
+    await state.update_data(order="region_first")
+    await callback.message.edit_text("📝 Введите тему инсайта (максимум 255 символов):")
+    await state.set_state(InsightForm.theme)
+    await callback.answer()
+
+@router.callback_query(InsightForm.choosing_order, F.data == "order_industry_first")
+async def order_industry_first(callback: CallbackQuery, state: FSMContext):
+    """Начать с отрасли"""
+    await state.update_data(order="industry_first")
+    await callback.message.edit_text("📝 Введите тему инсайта (максимум 255 символов):")
     await state.set_state(InsightForm.theme)
     await callback.answer()
 
@@ -157,11 +277,11 @@ async def new_insight_start(callback: CallbackQuery, state: FSMContext):
 async def process_theme(message: Message, state: FSMContext):
     """Обработка темы инсайта"""
     if len(message.text) > 255:
-        await message.answer("❌ Тема слишком длинная (макс. 255 символов)")
+        await message.answer("❌ Тема слишком длинная (максимум 255 символов)")
         return
     
     await state.update_data(theme=message.text)
-    await message.answer("📄 Введите описание инсайта:")
+    await message.answer("📄 Введите подробное описание инсайта:")
     await state.set_state(InsightForm.description)
 
 @router.message(InsightForm.description)
@@ -169,9 +289,17 @@ async def process_description(message: Message, state: FSMContext):
     """Обработка описания инсайта"""
     await state.update_data(description=message.text)
     
-    keyboard = await create_region_keyboard(for_search=False)
-    await message.answer("🗺️ Выберите макрорегион:", reply_markup=keyboard)
-    await state.set_state(InsightForm.macro_region)
+    data = await state.get_data()
+    order = data.get("order", "region_first")
+    
+    if order == "region_first":
+        keyboard = await create_region_keyboard(for_search=False)
+        await message.answer("🗺️ Выберите макрорегион:", reply_markup=keyboard)
+        await state.set_state(InsightForm.macro_region)
+    else:
+        keyboard = await create_industry_keyboard(for_search=False)
+        await message.answer("🏭 Выберите отрасль:", reply_markup=keyboard)
+        await state.set_state(InsightForm.industry)
 
 @router.callback_query(InsightForm.macro_region, F.data.startswith("new_region_"))
 async def process_region(callback: CallbackQuery, state: FSMContext):
@@ -185,30 +313,51 @@ async def process_region(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @router.callback_query(InsightForm.industry, F.data.startswith("new_industry_"))
+async def process_industry_from_region(callback: CallbackQuery, state: FSMContext):
+    """Обработка выбора отрасли (когда начали с региона)"""
+    industry = callback.data.replace("new_industry_", "")
+    await state.update_data(industry=industry)
+    await ask_for_file(callback, state)
+
+@router.callback_query(InsightForm.industry, F.data.startswith("new_industry_"))
 async def process_industry(callback: CallbackQuery, state: FSMContext):
     """Обработка выбора отрасли"""
     industry = callback.data.replace("new_industry_", "")
-    await state.update_data(industry=industry)
     
+    # Проверяем, есть ли macro_region (если начали с отрасли, его еще нет)
+    data = await state.get_data()
+    if "macro_region" not in data:
+        await state.update_data(industry=industry)
+        keyboard = await create_region_keyboard(for_search=False)
+        await callback.message.edit_text("🗺️ Теперь выберите макрорегион:", reply_markup=keyboard)
+        await state.set_state(InsightForm.macro_region)
+    else:
+        await state.update_data(industry=industry)
+        await ask_for_file(callback, state)
+    
+    await callback.answer()
+
+async def ask_for_file(callback: CallbackQuery, state: FSMContext):
+    """Запрос на прикрепление файла"""
     builder = InlineKeyboardBuilder()
     builder.button(text="📎 Прикрепить файл", callback_data="attach_file")
     builder.button(text="⏭️ Пропустить", callback_data="skip_file")
     builder.adjust(1)
     
     await callback.message.edit_text(
-        "📎 Хотите прикрепить файл к инсайту?\n\n"
+        "📎 **Финальный шаг**\n\n"
+        "Хотите прикрепить файл к инсайту?\n"
         "Вы можете отправить документ или фотографию.",
         reply_markup=builder.as_markup()
     )
     await state.set_state(InsightForm.file_attachment)
-    await callback.answer()
 
 @router.callback_query(InsightForm.file_attachment, F.data == "attach_file")
 async def ready_for_file(callback: CallbackQuery):
     """Подготовка к получению файла"""
     await callback.message.edit_text(
         "📤 Отправьте файл (документ или фото).\n"
-        "Используйте /skip для пропуска."
+        "Используйте /cancel для отмены."
     )
     await callback.answer()
 
@@ -224,8 +373,16 @@ async def process_document(message: Message, state: FSMContext):
     try:
         await save_insight_to_db(data, message.from_user.id)
         logger.info(f"User {message.from_user.id} created insight with document")
-        await message.answer("✅ Инсайт успешно создан с документом!", 
-                           reply_markup=await create_main_keyboard())
+        
+        success_text = (
+            f"✅ **Инсайт успешно создан!**\n\n"
+            f"📝 Тема: {data['theme']}\n"
+            f"🗺️ Макрорегион: {data['macro_region']}\n"
+            f"🏭 Отрасль: {data['industry']}\n"
+            f"📎 Файл: {filename}"
+        )
+        
+        await message.answer(success_text, reply_markup=await create_main_keyboard())
     except Exception as e:
         logger.error(f"Error saving insight: {e}")
         await message.answer("❌ Ошибка при сохранении инсайта")
@@ -243,8 +400,16 @@ async def process_photo(message: Message, state: FSMContext):
     try:
         await save_insight_to_db(data, message.from_user.id)
         logger.info(f"User {message.from_user.id} created insight with photo")
-        await message.answer("✅ Инсайт успешно создан с фото!", 
-                           reply_markup=await create_main_keyboard())
+        
+        success_text = (
+            f"✅ **Инсайт успешно создан!**\n\n"
+            f"📝 Тема: {data['theme']}\n"
+            f"🗺️ Макрорегион: {data['macro_region']}\n"
+            f"🏭 Отрасль: {data['industry']}\n"
+            f"📸 Фото прикреплено"
+        )
+        
+        await message.answer(success_text, reply_markup=await create_main_keyboard())
     except Exception as e:
         logger.error(f"Error saving insight: {e}")
         await message.answer("❌ Ошибка при сохранении инсайта")
@@ -258,10 +423,15 @@ async def skip_file(callback: CallbackQuery, state: FSMContext):
     try:
         await save_insight_to_db(data, callback.from_user.id)
         logger.info(f"User {callback.from_user.id} created insight without file")
-        await callback.message.edit_text(
-            "✅ Инсайт успешно создан!",
-            reply_markup=await create_main_keyboard()
+        
+        success_text = (
+            f"✅ **Инсайт успешно создан!**\n\n"
+            f"📝 Тема: {data['theme']}\n"
+            f"🗺️ Макрорегион: {data['macro_region']}\n"
+            f"🏭 Отрасль: {data['industry']}"
         )
+        
+        await callback.message.edit_text(success_text, reply_markup=await create_main_keyboard())
     except Exception as e:
         logger.error(f"Error saving insight: {e}")
         await callback.message.edit_text("❌ Ошибка при сохранении инсайта")
@@ -276,7 +446,7 @@ async def search_start(callback: CallbackQuery, state: FSMContext):
     """Начало поиска"""
     logger.info(f"User {callback.from_user.id} started searching")
     keyboard = await create_region_keyboard(for_search=True)
-    await callback.message.edit_text("🗺️ Выберите макрорегион для фильтрации:", 
+    await callback.message.edit_text("🗺️ Выберите макрорегион для поиска:", 
                                      reply_markup=keyboard)
     await state.set_state(SearchForm.macro_region)
     await callback.answer()
@@ -310,7 +480,8 @@ async def search_industry_selected(callback: CallbackQuery, state: FSMContext):
         
         if not insights:
             await callback.message.edit_text(
-                "😔 По данным фильтрам записей не найдено.",
+                "😔 По данным фильтрам записей не найдено.\n\n"
+                "Попробуйте другие параметры или создайте новый инсайт.",
                 reply_markup=InlineKeyboardBuilder()
                 .button(text="⬅️ Назад", callback_data="back_to_main")
                 .as_markup()
@@ -332,7 +503,7 @@ async def search_industry_selected(callback: CallbackQuery, state: FSMContext):
 async def show_insight(message, insight, insights_list, index, state):
     """Показать один инсайт с навигацией"""
     insight_text = (
-        f"📌 Инсайт {index + 1} из {len(insights_list)}\n\n"
+        f"📌 **Инсайт {index + 1} из {len(insights_list)}**\n\n"
         f"📅 Дата: {insight['created_at'][:10]}\n"
         f"📝 Тема: {insight['theme']}\n"
         f"📄 Описание: {insight['description']}\n"
@@ -422,7 +593,8 @@ async def export_excel(callback: CallbackQuery):
         file = FSInputFile(filename)
         await callback.message.answer_document(
             file,
-            caption=f"📊 Экспорт инсайтов ({len(insights)} записей)"
+            caption=f"📊 Экспорт инсайтов ({len(insights)} записей)\n\n"
+                    f"Файл содержит все сохраненные данные с форматированием."
         )
         
         logger.info(f"Export completed for user {callback.from_user.id}")
