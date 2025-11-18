@@ -2,7 +2,7 @@ import os
 import logging
 from datetime import datetime
 from decouple import config
-import asyncio
+from aiohttp import web
 
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.types import Message, CallbackQuery, FSInputFile
@@ -10,6 +10,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 
 from database import (
     save_insight_to_db,
@@ -28,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 # Инициализация
 BOT_TOKEN = config('BOT_TOKEN')
+WEBHOOK_URL = config('WEBHOOK_URL')
+PORT = int(config('PORT', default=8000))
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -434,23 +437,44 @@ async def export_excel(callback: CallbackQuery):
     
     await callback.answer()
 
+# ==================== WEBHOOK SETUP ====================
+
+async def on_startup(bot: Bot, base_url: str):
+    """Установка webhook при запуске"""
+    await bot.set_webhook(f"{base_url}/webhook")
+    logger.info(f"Webhook set to {base_url}/webhook")
+
+async def on_shutdown(bot: Bot):
+    """Удаление webhook при остановке"""
+    await bot.delete_webhook()
+    logger.info("Webhook deleted")
+
 # ==================== MAIN ====================
 
-async def main():
-    """Запуск бота в режиме polling"""
-    logger.info("🤖 Запуск бота в режиме polling")
-    logger.info("✅ Бот слушает сообщения...")
-    
+def main():
+    """Запуск бота на webhook"""
     # Регистрация роутера
     dp.include_router(router)
     
-    try:
-        await dp.start_polling(bot)
-    finally:
-        await bot.session.close()
+    # Создание webhook приложения
+    app = web.Application()
+    
+    # Обработчик webhook запросов
+    webhook_requests_handler = SimpleRequestHandler(
+        dispatcher=dp,
+        bot=bot,
+    )
+    
+    # Регистрация обработчика
+    webhook_requests_handler.register(app, path="/webhook")
+    
+    # Настройка приложения
+    setup_application(app, dp, bot=bot)
+    
+    # Запуск сервера
+    logger.info(f"Starting bot on 0.0.0.0:{PORT}")
+    logger.info(f"Webhook URL: {WEBHOOK_URL}/webhook")
+    web.run_app(app, host="0.0.0.0", port=PORT)
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("🛑 Бот остановлен")
+    main()
