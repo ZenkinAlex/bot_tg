@@ -571,8 +571,14 @@ async def back_to_regions(callback: CallbackQuery, state: FSMContext):
     await state.set_state(InsightForm.industry)
     
     keyboard = await create_industry_keyboard(macro_region=region, for_search=False)
-    await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
-    await callback.answer()
+    
+    try:
+        await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
+    except Exception as e:
+        logger.warning(f"Message not modified: {e}")
+        await callback.answer()
+        return
+
 
 @router.callback_query(F.data == "back_to_search_regions")
 async def back_to_search_regions(callback: CallbackQuery, state: FSMContext):
@@ -583,8 +589,16 @@ async def back_to_search_regions(callback: CallbackQuery, state: FSMContext):
     await state.set_state(SearchForm.industry)
     
     keyboard = await create_industry_keyboard(macro_region=region, for_search=True)
-    await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
+    
+    try:
+        await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
+    except Exception as e:
+        logger.warning(f"Message not modified: {e}")
+        await callback.answer()
+        return
+
     await callback.answer()
+
 
 # ==================== ЭКСПОРТ В EXCEL ====================
 
