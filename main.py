@@ -87,7 +87,6 @@ async def create_industry_keyboard(macro_region=None, for_search=False):
     builder = InlineKeyboardBuilder()
     
     for industry in INDUSTRIES:
-        # Если указан макро, считаем только для этого макро
         if macro_region:
             count = await get_count_by_two_fields("macro_region", macro_region, "industry", industry)
         else:
@@ -99,9 +98,15 @@ async def create_industry_keyboard(macro_region=None, for_search=False):
             callback_data=f"{prefix}_industry_{industry}"
         )
     
-    builder.button(text="⬅️ Назад", callback_data="back_to_regions" if macro_region else "back_to_main")
+    # ✓ ИСПРАВЛЕНО: разные callback_data для разных режимов
+    if for_search:
+        builder.button(text="⬅️ Назад", callback_data="back_to_search_regions")
+    else:
+        builder.button(text="⬅️ Назад", callback_data="back_to_regions")
+    
     builder.adjust(1)
     return builder.as_markup()
+
 
 # ==================== Команды ====================
 
