@@ -56,6 +56,18 @@ async def save_insight_to_db(data: dict, user_id: int):
         logger.error(f"Error saving insight: {e}")
         raise
 
+# Функция 1: считает записи по одному полю
+async def get_count_by_field(field: str, value: str) -> int:
+    """Получить количество инсайтов по одному полю"""
+    try:
+        response = supabase.table('insights').select('id', count='exact').eq(field, value).execute()
+        return len(response.data) if response.data else 0
+    except Exception as e:
+        logger.error(f"Error counting by field: {e}")
+        return 0
+
+
+# Функция 2: считает записи по двум полям
 async def get_count_by_two_fields(field1: str, value1: str, field2: str, value2: str) -> int:
     """Получить количество инсайтов по двум полям"""
     try:
@@ -64,6 +76,7 @@ async def get_count_by_two_fields(field1: str, value1: str, field2: str, value2:
     except Exception as e:
         logger.error(f"Error counting by two fields: {e}")
         return 0
+
 
 
 async def get_all_insights():
