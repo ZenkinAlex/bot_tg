@@ -87,6 +87,7 @@ async def create_industry_keyboard(macro_region=None, for_search=False):
     builder = InlineKeyboardBuilder()
     
     for industry in INDUSTRIES:
+        # Если указан макро, считаем только для этого макро
         if macro_region:
             count = await get_count_by_two_fields("macro_region", macro_region, "industry", industry)
         else:
@@ -98,7 +99,7 @@ async def create_industry_keyboard(macro_region=None, for_search=False):
             callback_data=f"{prefix}_industry_{industry}"
         )
     
-    # ✓ ИСПРАВЛЕНО: разные callback_data для разных режимов
+    # ИСПРАВЛЕНИЕ: разные callback_data для разных режимов
     if for_search:
         builder.button(text="⬅️ Назад", callback_data="back_to_search_regions")
     else:
@@ -106,7 +107,6 @@ async def create_industry_keyboard(macro_region=None, for_search=False):
     
     builder.adjust(1)
     return builder.as_markup()
-
 
 # ==================== Команды ====================
 
@@ -564,37 +564,27 @@ async def back_to_search(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "back_to_regions")
 async def back_to_regions(callback: CallbackQuery, state: FSMContext):
-    """Возврат к выбору отраслей с сохранением макро"""
+    """Возврат к выбору отраслей для создания"""
     data = await state.get_data()
     region = data.get("macro_region")
     
     await state.set_state(InsightForm.industry)
     
     keyboard = await create_industry_keyboard(macro_region=region, for_search=False)
-    # ✓ Добавил текст с указанием выбранного региона
-    await callback.message.edit_text(
-        f"🏭 Выберите отрасль (Регион: {region}):", 
-        reply_markup=keyboard
-    )
+    await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
     await callback.answer()
 
 @router.callback_query(F.data == "back_to_search_regions")
 async def back_to_search_regions(callback: CallbackQuery, state: FSMContext):
-    """Возврат к выбору отраслей в режиме поиска"""
+    """Возврат к выбору отраслей для поиска"""
     data = await state.get_data()
     region = data.get("macro_region")
     
     await state.set_state(SearchForm.industry)
     
     keyboard = await create_industry_keyboard(macro_region=region, for_search=True)
-    # ✓ Добавил текст с указанием выбранного региона
-    await callback.message.edit_text(
-        f"🏭 Выберите отрасль (Регион: {region}):", 
-        reply_markup=keyboard
-    )
+    await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
     await callback.answer()
-
-
 
 # ==================== ЭКСПОРТ В EXCEL ====================
 
