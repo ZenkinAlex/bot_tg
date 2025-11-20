@@ -99,11 +99,11 @@ async def create_industry_keyboard(macro_region=None, for_search=False):
             callback_data=f"{prefix}_industry_{industry}"
         )
     
-    # ИСПРАВЛЕНИЕ: разные callback_data для разных режимов
+    # ИСПРАВЛЕНИЕ: разные callback_data для разных режимов - возврат на макро
     if for_search:
-        builder.button(text="⬅️ Назад", callback_data="back_to_search_regions")
+        builder.button(text="⬅️ Назад", callback_data="back_to_search_macro")
     else:
-        builder.button(text="⬅️ Назад", callback_data="back_to_regions")
+        builder.button(text="⬅️ Назад", callback_data="back_to_new_macro")
     
     builder.adjust(1)
     return builder.as_markup()
@@ -562,43 +562,29 @@ async def back_to_search(callback: CallbackQuery, state: FSMContext):
     )
     await callback.answer()
 
-@router.callback_query(F.data == "back_to_regions")
-async def back_to_regions(callback: CallbackQuery, state: FSMContext):
-    """Возврат к выбору отраслей для создания"""
+# ==================== ВОЗВРАТ НА МАКРО-РЕГИОН ====================
+
+@router.callback_query(F.data == "back_to_new_macro")
+async def back_to_new_macro(callback: CallbackQuery, state: FSMContext):
+    """Возврат к выбору макрорегиона при создании инсайта"""
     data = await state.get_data()
-    region = data.get("macro_region")
     
-    await state.set_state(InsightForm.industry)
+    await state.set_state(InsightForm.macro_region)
     
-    keyboard = await create_industry_keyboard(macro_region=region, for_search=False)
-    
-    try:
-        await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
-    except Exception as e:
-        logger.warning(f"Message not modified: {e}")
-        await callback.answer()
-        return
-
-
-@router.callback_query(F.data == "back_to_search_regions")
-async def back_to_search_regions(callback: CallbackQuery, state: FSMContext):
-    """Возврат к выбору отраслей для поиска"""
-    data = await state.get_data()
-    region = data.get("macro_region")
-    
-    await state.set_state(SearchForm.industry)
-    
-    keyboard = await create_industry_keyboard(macro_region=region, for_search=True)
-    
-    try:
-        await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
-    except Exception as e:
-        logger.warning(f"Message not modified: {e}")
-        await callback.answer()
-        return
-
+    keyboard = await create_region_keyboard(for_search=False)
+    await callback.message.edit_text("🗺️ Выберите макрорегион:", reply_markup=keyboard)
     await callback.answer()
 
+@router.callback_query(F.data == "back_to_search_macro")
+async def back_to_search_macro(callback: CallbackQuery, state: FSMContext):
+    """Возврат к выбору макрорегиона при поиске инсайта"""
+    data = await state.get_data()
+    
+    await state.set_state(SearchForm.macro_region)
+    
+    keyboard = await create_region_keyboard(for_search=True)
+    await callback.message.edit_text("🗺️ Выберите макрорегион для поиска:", reply_markup=keyboard)
+    await callback.answer()
 
 # ==================== ЭКСПОРТ В EXCEL ====================
 
