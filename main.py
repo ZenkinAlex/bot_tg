@@ -15,6 +15,7 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_applicati
 from database import (
     save_insight_to_db,
     get_count_by_field,
+    get_count_by_two_fields,
     get_all_insights,
     get_filtered_insights,
 )
@@ -81,19 +82,24 @@ async def create_region_keyboard(for_search=False):
     builder.adjust(2)
     return builder.as_markup()
 
-async def create_industry_keyboard(region=None, for_search=False):
-    """Создание клавиатуры выбора отрасли"""
+async def create_industry_keyboard(macro_region=None, for_search=False):
+    """Создание клавиатуры выбора отрасли - считает по выбранному макро"""
     builder = InlineKeyboardBuilder()
     
     for industry in INDUSTRIES:
-        count = await get_count_by_field("industry", industry)
+        # Если указан макро, считаем только для этого макро
+        if macro_region:
+            count = await get_count_by_two_fields("macro_region", macro_region, "industry", industry)
+        else:
+            count = await get_count_by_field("industry", industry)
+        
         prefix = "search" if for_search else "new"
         builder.button(
             text=f"{industry} ({count})",
             callback_data=f"{prefix}_industry_{industry}"
         )
     
-    builder.button(text="⬅️ Назад", callback_data="back_to_regions" if region else "back_to_main")
+    builder.button(text="⬅️ Назад", callback_data="back_to_regions" if macro_region else "back_to_main")
     builder.adjust(1)
     return builder.as_markup()
 
@@ -250,7 +256,7 @@ async def process_region(callback: CallbackQuery, state: FSMContext):
     region = callback.data.replace("new_region_", "")
     await state.update_data(macro_region=region)
     
-    keyboard = await create_industry_keyboard(region=region, for_search=False)
+    keyboard = await create_industry_keyboard(macro_region=region, for_search=False)
     await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
     await state.set_state(InsightForm.industry)
     await callback.answer()
@@ -403,9 +409,10 @@ async def search_start(callback: CallbackQuery, state: FSMContext):
 async def search_region_selected(callback: CallbackQuery, state: FSMContext):
     """Выбор макрорегиона в поиске"""
     region = callback.data.replace("search_region_", "")
+    logger.info(f"User {callback.from_user.id} selected region: {region}")
     await state.update_data(macro_region=region)
     
-    keyboard = await create_industry_keyboard(region=region, for_search=True)
+    keyboard = await create_industry_keyboard(macro_region=region, for_search=True)
     await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
     await state.set_state(SearchForm.industry)
     await callback.answer()
@@ -414,6 +421,7 @@ async def search_region_selected(callback: CallbackQuery, state: FSMContext):
 async def search_industry_selected(callback: CallbackQuery, state: FSMContext):
     """Выбор отрасли в поиске и вывод результатов"""
     industry = callback.data.replace("search_industry_", "")
+    logger.info(f"User {callback.from_user.id} selected industry: {industry}")
     await state.update_data(industry=industry)
     
     data = await state.get_data()
@@ -547,6 +555,16 @@ async def back_to_search(callback: CallbackQuery, state: FSMContext):
         f"Хотите изменить фильтры?",
         reply_markup=builder.as_markup()
     )
+    await callback.answer()
+
+@router.callback_query(F.data == "back_to_regions")
+async def back_to_regions(callback: CallbackQuery, state: FSMContext):
+    """Возврат к выбору отраслей с сохранением макро"""
+    data = await state.get_data()
+    region = data.get("macro_region")
+    
+    keyboard = await create_industry_keyboard(macro_region=region, for_search=False)
+    await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
     await callback.answer()
 
 # ==================== ЭКСПОРТ В EXCEL ====================
