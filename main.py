@@ -363,7 +363,6 @@ async def skip_file(callback: CallbackQuery, state: FSMContext):
     """Пропуск прикрепления файла"""
     data = await state.get_data()
     try:
-        # Убираем file_id если его нет
         if 'file_id' not in data:
             data['file_id'] = None
             data['filename'] = None
@@ -423,14 +422,19 @@ async def search_industry_selected(callback: CallbackQuery, state: FSMContext):
         "industry": industry
     }
     
+    logger.info(f"🔍 User {callback.from_user.id} searching with filters: {filters}")
+    
     try:
         insights = await get_filtered_insights(filters)
-        logger.info(f"User {callback.from_user.id} found {len(insights)} insights")
+        logger.info(f"✅ Found {len(insights)} insights with filters {filters}")
         
         if not insights:
+            logger.warning(f"⚠️ No insights found for filters: {filters}")
             await callback.message.edit_text(
-                "😔 По данным фильтрам записей не найдено.\n\n"
-                "Попробуйте другие параметры или создайте новый инсайт.",
+                f"😔 Записей не найдено\n\n"
+                f"🗺️ Регион: {filters['macro_region']}\n"
+                f"🏭 Отрасль: {filters['industry']}\n\n"
+                "Создайте первый инсайт!",
                 reply_markup=InlineKeyboardBuilder()
                 .button(text="⬅️ Назад", callback_data="back_to_main")
                 .as_markup()
@@ -439,13 +443,13 @@ async def search_industry_selected(callback: CallbackQuery, state: FSMContext):
             await callback.answer()
             return
         
-        # Показываем первый инсайт
         await show_insight(callback.message, insights[0], insights, 0, state)
         await state.update_data(insights=insights, current_index=0)
         await state.set_state(SearchForm.viewing)
+        logger.info(f"Showing first insight to user {callback.from_user.id}")
     except Exception as e:
-        logger.error(f"Error searching insights: {e}", exc_info=True)
-        await callback.message.edit_text("❌ Ошибка при поиске инсайтов")
+        logger.error(f"❌ Error searching insights: {str(e)}", exc_info=True)
+        await callback.message.edit_text(f"❌ Ошибка при поиске:\n{str(e)}")
     
     await callback.answer()
 
@@ -463,15 +467,16 @@ async def show_insight(message, insight, insights_list, index, state):
     builder = InlineKeyboardBuilder()
     
     if index > 0:
-        builder.button(text="⬅️ Назад", callback_data="prev_insight")
+        builder.button(text="⬅️ Пред.", callback_data="prev_insight")
     
     if index < len(insights_list) - 1:
-        builder.button(text="Вперед ➡️", callback_data="next_insight")
+        builder.button(text="Сл. ➡️", callback_data="next_insight")
     
     if insight.get('file_id'):
-        builder.button(text="📎 Скачать файл", callback_data="download_file")
+        builder.button(text="📎 Файл", callback_data="download_file")
     
-    builder.button(text="🔙 В меню", callback_data="back_to_main")
+    builder.button(text="🔍 К фильтрам", callback_data="back_to_search")
+    builder.button(text="🔙 Меню", callback_data="back_to_main")
     builder.adjust(2)
     
     await message.edit_text(insight_text, reply_markup=builder.as_markup())
@@ -523,6 +528,27 @@ async def download_file(callback: CallbackQuery, state: FSMContext):
     
     await callback.answer()
 
+@router.callback_query(SearchForm.viewing, F.data == "back_to_search")
+async def back_to_search(callback: CallbackQuery, state: FSMContext):
+    """Возврат к фильтрам поиска"""
+    data = await state.get_data()
+    region = data.get("macro_region")
+    industry = data.get("industry")
+
+    builder = InlineKeyboardBuilder()
+    builder.button(text="✏️ Изменить фильтры", callback_data="search_insights")
+    builder.button(text="🔙 В меню", callback_data="back_to_main")
+    builder.adjust(1)
+
+    await callback.message.edit_text(
+        f"🔍 **Текущие фильтры:**\n\n"
+        f"🗺️ Регион: {region}\n"
+        f"🏭 Отрасль: {industry}\n\n"
+        f"Хотите изменить фильтры?",
+        reply_markup=builder.as_markup()
+    )
+    await callback.answer()
+
 # ==================== ЭКСПОРТ В EXCEL ====================
 
 @router.callback_query(F.data == "export_excel")
@@ -548,7 +574,6 @@ async def export_excel(callback: CallbackQuery):
         
         logger.info(f"Export completed for user {callback.from_user.id}")
         
-        # Удаляем временный файл
         if os.path.exists(filename):
             os.remove(filename)
     
@@ -574,25 +599,19 @@ async def on_shutdown(bot: Bot):
 
 def main():
     """Запуск бота на webhook"""
-    # Регистрация роутера
     dp.include_router(router)
     
-    # Создание webhook приложения
     app = web.Application()
     
-    # Обработчик webhook запросов
     webhook_requests_handler = SimpleRequestHandler(
         dispatcher=dp,
         bot=bot,
     )
     
-    # Регистрация обработчика
     webhook_requests_handler.register(app, path="/webhook")
     
-    # Настройка приложения
     setup_application(app, dp, bot=bot)
     
-    # Запуск сервера
     logger.info(f"Starting bot on 0.0.0.0:{PORT}")
     logger.info(f"Webhook URL: {WEBHOOK_URL}/webhook")
     web.run_app(app, host="0.0.0.0", port=PORT)
