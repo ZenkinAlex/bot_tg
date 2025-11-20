@@ -559,13 +559,27 @@ async def back_to_search(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "back_to_regions")
 async def back_to_regions(callback: CallbackQuery, state: FSMContext):
-    """Возврат к выбору отраслей с сохранением макро"""
     data = await state.get_data()
     region = data.get("macro_region")
+    
+    await state.set_state(InsightForm.industry)  # ← КЛЮЧЕВАЯ СТРОКА!
     
     keyboard = await create_industry_keyboard(macro_region=region, for_search=False)
     await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
     await callback.answer()
+
+@router.callback_query(F.data == "back_to_search_regions")
+async def back_to_search_regions(callback: CallbackQuery, state: FSMContext):
+    """Возврат к выбору отраслей в режиме поиска"""
+    data = await state.get_data()
+    region = data.get("macro_region")
+    
+    await state.set_state(SearchForm.industry)  # ← КЛЮЧЕВАЯ СТРОКА!
+    
+    keyboard = await create_industry_keyboard(macro_region=region, for_search=True)
+    await callback.message.edit_text("🏭 Выберите отрасль:", reply_markup=keyboard)
+    await callback.answer()
+
 
 # ==================== ЭКСПОРТ В EXCEL ====================
 
